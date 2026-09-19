@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vinayaka &amp; Mushika — Temple of Modaks</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:100%; height:100%; overflow:hidden; background:#05030c; font-family:'Segoe UI','Trebuchet MS',sans-serif; user-select:none; -webkit-user-select:none; touch-action:none; }
+  #c { display:block; width:100vw; height:100vh; cursor:grab; }
+  #c.dragging { cursor:grabbing; }
+
+  :root { --rainbow:linear-gradient(90deg,#b8912a,#b57413,#b33648,#b91a62,#7438ab,#3590b0,#089873,#b8912a); }
+  @keyframes rainbowShift { to { background-position:280% 50%; } }
+  @keyframes hueSpin { to { filter:hue-rotate(360deg); } }
+  @keyframes floatGlow { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-6px); } }
+
+  /* ---------- HUD ---------- */
+  .card { background:linear-gradient(160deg, rgba(18,6,34,.92), rgba(6,2,16,.9)); border:1px solid rgba(120,70,150,.5); border-radius:14px; backdrop-filter:blur(8px); color:#cfc2dd; box-shadow:0 4px 18px rgba(0,0,0,.6), 0 0 14px rgba(40,15,70,.35); }
+  #hud { position:fixed; inset:0; pointer-events:none; z-index:5; display:none; }
+  #quest-panel { position:absolute; top:14px; left:14px; width:min(300px, 72vw); padding:10px 14px 8px; border-color:rgba(140,110,40,.6); }
+  #quest-panel h3 { font-size:10px; letter-spacing:3px; text-transform:uppercase; margin-bottom:6px; font-weight:800;
+    background:var(--rainbow); background-size:280% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 4s linear infinite; }
+  .q { display:flex; align-items:flex-start; gap:8px; font-size:13px; line-height:1.35; padding:5px 0; border-top:1px solid rgba(255,255,255,.08); }
+  .q:first-of-type { border-top:none; }
+  .q .ic { width:18px; text-align:center; flex:none; color:#b07aa8; }
+  .q .t { flex:1; }
+  .q .p { color:#c2a84e; font-weight:700; font-variant-numeric:tabular-nums; }
+  .q.done { color:#4fa878; }
+  .q.done .ic { color:#4fa878; }
+  .q.hint { color:#8d80b5; font-style:italic; }
+  #bless-box { position:absolute; top:14px; right:14px; padding:8px 16px; text-align:right; border-color:rgba(140,110,40,.65); }
+  #bless-box .big { font-size:26px; font-weight:900; line-height:1; font-variant-numeric:tabular-nums;
+    background:linear-gradient(90deg,#b8912a,#b33648,#b07aa8,#b8912a); background-size:240% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 5s linear infinite;
+    filter:drop-shadow(0 0 10px rgba(120,90,30,.45)); }
+  #bless-box .sub { font-size:10px; letter-spacing:2px; color:#8d80b5; text-transform:uppercase; margin-top:3px; }
+  #time-box { position:absolute; top:76px; right:14px; padding:6px 12px; font-size:12px; color:#4f98ad; letter-spacing:1px; border-color:rgba(50,120,140,.5); text-shadow:0 0 8px rgba(0,110,140,.5); }
+  #prompt { position:absolute; left:50%; bottom:22%; transform:translateX(-50%); padding:8px 18px; font-size:15px; font-weight:700; color:#c8b880; opacity:0; transition:opacity .15s; white-space:nowrap; border-color:rgba(140,110,40,.65); }
+  #prompt .key { display:inline-block; background:linear-gradient(180deg,#2a164e,#1c0f3a); border:1px solid #6a4e96; border-radius:6px; padding:0 8px; margin-right:8px; color:#c2a84e; }
+  #toast { position:absolute; left:50%; top:16%; transform:translateX(-50%); font-size:clamp(20px,3.4vw,30px); font-weight:900; text-align:center; white-space:nowrap; opacity:0; transition:opacity .25s;
+    background:var(--rainbow); background-size:280% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 4s linear infinite;
+    filter:drop-shadow(0 0 14px rgba(140,60,100,.4)) drop-shadow(0 2px 4px rgba(0,0,0,.6)); }
+  #toast small { display:block; font-size:.5em; font-weight:600; letter-spacing:2px; margin-top:4px; color:#4f98ad; -webkit-text-fill-color:#4f98ad; filter:none; }
+
+  /* ---------- Dialogue ---------- */
+  #dialog { position:fixed; left:50%; bottom:26px; transform:translateX(-50%); width:min(680px, 94vw); padding:16px 20px 14px; z-index:8; display:none; pointer-events:auto; cursor:pointer;
+    border-color:rgba(130,80,150,.55); box-shadow:0 6px 30px rgba(120,20,80,.25), 0 4px 18px rgba(0,0,0,.55); }
+  #dialog .name { font-size:11px; letter-spacing:3px; text-transform:uppercase; margin-bottom:6px; font-weight:800;
+    background:linear-gradient(90deg,#b8912a,#b07aa8,#4f98ad); background-size:200% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 3s linear infinite; }
+  #dialog .text { font-size:16px; line-height:1.5; color:#ded4ea; min-height:48px; }
+  #dialog .next { text-align:right; font-size:11px; color:#7d6fa3; letter-spacing:2px; margin-top:8px; }
+  #dialog .next .key { display:inline-block; background:linear-gradient(180deg,#2a164e,#1c0f3a); border:1px solid #6a4e96; border-radius:5px; padding:0 6px; color:#c2a84e; }
+
+  /* ---------- Screens ---------- */
+  .screen { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; z-index:10; text-align:center; padding:20px;
+    background:
+      radial-gradient(ellipse at 20% 18%, rgba(70,30,120,.45), transparent 55%),
+      radial-gradient(ellipse at 80% 24%, rgba(130,20,90,.35), transparent 55%),
+      radial-gradient(ellipse at 76% 82%, rgba(20,90,130,.3), transparent 55%),
+      radial-gradient(ellipse at 22% 86%, rgba(120,70,15,.32), transparent 55%),
+      rgba(2,1,6,.96); }
+  .screen.hidden { display:none; }
+  .title { font-size:clamp(34px,7vw,66px); font-weight:900; letter-spacing:3px; line-height:1.05;
+    background:var(--rainbow); background-size:280% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+    animation:rainbowShift 6s linear infinite;
+    filter:drop-shadow(0 4px 16px rgba(120,50,90,.4)); }
+  .subtitle { font-size:clamp(14px,2.4vw,20px); letter-spacing:6px; text-transform:uppercase; font-weight:800;
+    background:linear-gradient(90deg,#4f98ad,#b07aa8,#c2a84e,#4f98ad); background-size:240% 100%;
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 5s linear infinite; }
+  .tagline { color:#b5a8c9; font-size:clamp(13px,2.4vw,16px); max-width:600px; line-height:1.6; }
+  .tagline b { color:#c2a84e; }
+  .keys { display:flex; gap:12px 18px; flex-wrap:wrap; justify-content:center; margin-top:4px; color:#9a8cba; font-size:13px; max-width:640px; }
+  .key { display:inline-block; background:linear-gradient(180deg,#2a164e,#1c0f3a); border:1px solid #6a4e96; border-radius:6px; padding:1px 8px; color:#c2a84e; font-weight:700; font-size:.92em; box-shadow:0 2px 8px rgba(60,30,110,.35); }
+  .btn { pointer-events:auto; cursor:pointer; border:none; border-radius:999px; padding:15px 46px; font-size:18px; font-weight:900; letter-spacing:2px; color:#e8e0d0;
+    text-shadow:0 2px 6px rgba(0,0,0,.6);
+    background:var(--rainbow); background-size:280% 100%; animation:rainbowShift 5s linear infinite;
+    box-shadow:0 6px 26px rgba(120,20,80,.4), 0 0 0 2px rgba(255,255,255,.12) inset;
+    transition:transform .12s ease, box-shadow .12s ease; }
+  .btn:hover { transform:translateY(-2px) scale(1.03); box-shadow:0 10px 34px rgba(160,40,70,.5), 0 0 0 2px rgba(255,255,255,.2) inset; }
+  .btn:active { transform:translateY(1px); }
+  .om { font-size:52px; color:#c2a84e; text-shadow:0 0 18px rgba(140,80,140,.6), 0 0 40px rgba(30,110,140,.5);
+    animation:floatGlow 3s ease-in-out infinite, hueSpin 9s linear infinite; }
+  .stats { display:flex; gap:34px; margin:6px 0; }
+  .stats .item { text-align:center; }
+  .stats .v { font-size:30px; font-weight:900; font-variant-numeric:tabular-nums;
+    background:var(--rainbow); background-size:280% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent; animation:rainbowShift 4s linear infinite; }
+  .stats .k { font-size:10px; letter-spacing:2px; color:#8d80b5; text-transform:uppercase; }
+  .spinner { width:46px; height:46px; border-radius:50%; border:4px solid rgba(255,255,255,.08);
+    border-top-color:#b8912a; border-right-color:#b33648; border-bottom-color:#7438ab; border-left-color:#3590b0;
+    box-shadow:0 0 16px rgba(60,30,110,.4); animation:spin 1s linear infinite, hueSpin 6s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  #loading-text { color:#8d80b5; letter-spacing:2px; font-size:12px; text-transform:uppercase; }
+  .link { color:#4f98ad; font-size:12px; letter-spacing:1px; pointer-events:auto; text-decoration:none; opacity:.85; }
+  .link:hover { opacity:1; text-decoration:underline; }
+
+  /* ---------- Cinematic vignette ---------- */
+  #vignette { position:fixed; inset:0; z-index:3; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 42%, transparent 55%, rgba(1,0,4,.5) 100%); }
+
+  /* ---------- Touch controls ---------- */
+  #touch { position:fixed; inset:0; pointer-events:none; z-index:6; display:none; }
+  body.touch #touch { display:block; }
+  #joy { position:absolute; left:28px; bottom:28px; width:130px; height:130px; border-radius:50%; background:rgba(70,40,110,.14); border:1px solid rgba(120,80,140,.45); pointer-events:auto; }
+  #joy .knob { position:absolute; left:50%; top:50%; width:54px; height:54px; margin:-27px 0 0 -27px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, #b8912a, #b34848 60%, #b91a62); box-shadow:0 2px 12px rgba(130,20,70,.4); }
+  .tbtn { position:absolute; width:70px; height:70px; border-radius:50%; pointer-events:auto; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; letter-spacing:1px; color:#d8d0c8;
+    text-shadow:0 2px 5px rgba(0,0,0,.6);
+    background:linear-gradient(180deg,#b34848,#b91a62 55%,#7438ab); box-shadow:0 4px 16px rgba(130,20,70,.4); }
+  .tbtn:active { transform:scale(.94); }
+  #tb-act { right:28px; bottom:58px; background:linear-gradient(180deg,#b8912a,#b57413 55%,#b34848); box-shadow:0 4px 16px rgba(120,80,20,.4); }
+  #tb-jump { right:112px; bottom:24px; background:linear-gradient(180deg,#089873,#0a8bb0 55%,#3a4fc0); box-shadow:0 4px 16px rgba(10,90,130,.4); }
+  #tb-run { right:28px; bottom:146px; width:56px; height:56px; font-size:11px; background:linear-gradient(180deg,#8a63b8,#7438ab 55%,#4a1f8a); box-shadow:0 4px 16px rgba(90,40,140,.4); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vignette"></div>
+
+<div id="hud">
+  <div class="card" id="quest-panel"><h3>Temple Tasks</h3><div id="quest-list"></div></div>
+  <div class="card" id="bless-box"><div class="big" id="bless">0</div><div class="sub">Blessings</div></div>
+  <div class="card" id="time-box">⏱ <span id="time">0:00</span></div>
+  <div class="card" id="prompt"><span class="key">E</span><span id="prompt-text"></span></div>
+  <div id="toast"></div>
+</div>
+
+<div class="card" id="dialog">
+  <div class="name" id="dlg-name"></div>
+  <div class="text" id="dlg-text"></div>
+  <div class="next"><span class="key">E</span> / click to continue</div>
+</div>
+
+<div id="touch">
+  <div id="joy"><div class="knob"></div></div>
+  <div class="tbtn" id="tb-run">RUN</div>
+  <div class="tbtn" id="tb-jump">JUMP</div>
+  <div class="tbtn" id="tb-act">ACT</div>
+</div>
+
+<div class="screen" id="loading-screen">
+  <div class="om">ॐ</div>
+  <div class="spinner"></div>
+  <div id="loading-text">Building the temple…</div>
+</div>
+
+<div class="screen hidden" id="menu-screen">
+  <div class="om">ॐ</div>
+  <div class="title">VINAYAKA &amp; MUSHIKA</div>
+  <div class="subtitle">Temple of Modaks</div>
+  <div class="tagline">The grand aarti is tonight, but the temple is not ready.<br>
+    Ride Mushika through the courtyard, help the devotees with their tasks,<br>
+    light the diyas, ring the bells, find the lost modaks, Mushika's cousins
+    &amp; lotuses for <b>Lata's garland</b> — then lead the <b>Grand Aarti</b>. <b>Ganapati Bappa Morya!</b></div>
+  <div class="keys">
+    <span><span class="key">W</span><span class="key">A</span><span class="key">S</span><span class="key">D</span> / arrows ride</span>
+    <span><span class="key">Shift</span> gallop</span>
+    <span><span class="key">Space</span> hop</span>
+    <span><span class="key">E</span> talk / interact</span>
+    <span><span class="key">Mouse drag</span> look &nbsp; <span class="key">Wheel</span> zoom</span>
+  </div>
+  <button class="btn" id="play-btn">ENTER THE TEMPLE</button>
+  <a class="link" href="index.html">← play Ganesha Run (endless runner) instead</a>
+</div>
+
+<div class="screen hidden" id="end-screen">
+  <div class="om">ॐ</div>
+  <div class="title" style="font-size:clamp(28px,5.5vw,50px);">GANAPATI BAPPA MORYA!</div>
+  <div class="tagline">The Grand Aarti is complete. The temple glows, the bells still hum,<br>and every modak has found its way home.</div>
+  <div class="stats">
+    <div class="item"><div class="v" id="end-bless">0</div><div class="k">Blessings</div></div>
+    <div class="item"><div class="v" id="end-time">0:00</div><div class="k">Time</div></div>
+    <div class="item"><div class="v" id="end-modaks">0</div><div class="k">Modaks</div></div>
+  </div>
+  <button class="btn" id="continue-btn">KEEP EXPLORING</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="adventure/core.js"></script>
+<script src="adventure/world.js"></script>
+<script src="adventure/characters.js"></script>
+<script src="adventure/quests.js"></script>
+<script src="adventure/main.js"></script>
+</body>
+</html>
